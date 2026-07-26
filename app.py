@@ -1,7 +1,8 @@
 """
 Plant Disease Detection — Demo App
 ====================================
-Upload a leaf photo and get a disease prediction from the trained model.
+Upload a leaf photo and get a disease prediction, a one-line explanation,
+and general treatment guidance.
 
 Run with:
     streamlit run app.py
@@ -17,11 +18,13 @@ from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
 from tensorflow.keras.layers import Dense, GlobalAveragePooling2D, Dropout
 from tensorflow.keras.models import Model
 
+from disease_info import get_disease_info
+
 IMG_SIZE = (224, 224)
 
 st.set_page_config(page_title="Plant Disease Detector", page_icon="🌿")
 st.title("🌿 Plant Disease Detection")
-st.caption("Upload a photo of a plant leaf to detect possible disease.")
+st.caption("Upload a photo of a plant leaf to detect possible disease, with treatment guidance.")
 
 
 def build_model(num_classes):
@@ -83,12 +86,26 @@ if uploaded_file is not None and model_loaded:
     top_confidence = predictions[top_indices[0]] * 100
     st.success(f"**{format_class_name(top_class)}** — {top_confidence:.1f}% confidence")
 
+    info = get_disease_info(top_class)
+    st.markdown(f"**What this means:** {info['description']}")
+
+    is_healthy = "healthy" in top_class.lower()
+    if is_healthy:
+        st.info(f"Recommendation: {info['treatment']}")
+    else:
+        st.warning(f"Suggested treatment: {info['treatment']}")
+        st.caption(
+            "This is general guidance only. For exact product choice, dosage, "
+            "and application timing, consult a local agricultural extension officer "
+            "who can assess the crop, region, and severity in person."
+        )
+
     st.subheader("Top 3 possibilities")
     for idx in top_indices:
         st.write(f"{format_class_name(class_names[idx])}: {predictions[idx]*100:.1f}%")
         st.progress(float(predictions[idx]))
 
-    if "healthy" not in top_class.lower() and top_confidence < 50:
+    if not is_healthy and top_confidence < 50:
         st.warning(
             "Confidence is low — consider uploading a clearer, well-lit photo "
             "focused on the affected leaf area."
